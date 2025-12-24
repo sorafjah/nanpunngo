@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>何分前・何分後</title>
+    <title>何分前・何分後プリントメーカー</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @media print {
@@ -59,13 +59,17 @@
 <body class="bg-gray-100 p-4">
 
     <!-- 設定パネル -->
-    <div class="no-print max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-md mb-8">
+    <div class="no-print max-w-[210mm] mx-auto bg-white p-6 rounded-lg shadow-md mb-8">
         <h1 class="text-xl font-bold mb-4 border-b pb-2">プリント設定</h1>
         
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
                 <label class="block font-bold mb-2">問題数</label>
                 <div class="flex flex-wrap gap-2">
+                    <label class="inline-flex items-center cursor-pointer">
+                        <input type="radio" name="qCount" value="4" class="hidden peer">
+                        <span class="px-4 py-2 border rounded hover:bg-gray-50 transition-colors">4問</span>
+                    </label>
                     <label class="inline-flex items-center cursor-pointer">
                         <input type="radio" name="qCount" value="6" class="hidden peer">
                         <span class="px-4 py-2 border rounded hover:bg-gray-50 transition-colors">6問</span>
@@ -128,7 +132,7 @@
             <button onclick="generateWorksheet()" class="flex-1 bg-sky-500 text-white font-bold py-3 rounded hover:bg-sky-600 transition">
                 問題を作る
             </button>
-            <button onclick="window.print()" class="bg-blue-700 text-white font-bold py-3 px-8 rounded hover:bg-blue-800 transition">
+            <button onclick="window.print()" class="flex-1 bg-blue-700 text-white font-bold py-3 rounded hover:bg-blue-800 transition">
                 印刷する
             </button>
         </div>
