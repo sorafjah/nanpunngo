@@ -3,12 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-  <title>何分前・何分後</title>
+  <title>何分後・何分前</title>
 
-  <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- 日本語フォント -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600;700&display=swap" rel="stylesheet">
@@ -18,20 +16,20 @@
 
     @media print {
       @page { size: A4 portrait; margin: 0; }
-
-      /* これがないと「A4(297mm) + padding(15mm×2)」で必ずはみ出して2枚になりがち */
       * { box-sizing: border-box !important; }
-
-      body { background: white; padding: 0; margin: 0; }
+      html, body { height: auto !important; overflow: visible !important; }
+      body { background: white !important; padding: 0 !important; margin: 0 !important; }
       .print-hidden { display: none !important; }
 
+      /* A4 1枚に固定（padding込みで297mmに収める） */
       #printable-area {
+        width: 210mm !important;
+        height: 297mm !important;
+        margin: 0 !important;
+        padding: 20mm !important;   /* ★余白多め */
         border: none !important;
         box-shadow: none !important;
-        width: 210mm !important;
-        min-height: 297mm !important;
-        margin: 0 !important;
-        padding: 15mm !important;
+        overflow: hidden !important;
       }
     }
   </style>
@@ -47,7 +45,6 @@
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      <!-- 時間の刻み -->
       <div>
         <label class="block text-sm font-semibold text-slate-700 mb-2">時間の刻み</label>
         <div class="flex gap-1">
@@ -57,19 +54,17 @@
         </div>
       </div>
 
-      <!-- 12をまたぐ問題 -->
       <div>
         <label class="block text-sm font-semibold text-slate-700 mb-2">12をまたぐ問題</label>
         <div class="flex gap-1">
           <button id="crossNo" class="flex-1 py-1.5 rounded border text-sm bg-sky-500 text-white border-sky-500">なし</button>
           <button id="crossYes" class="flex-1 py-1.5 rounded border text-sm bg-white hover:bg-sky-50">あり</button>
         </div>
-        <div class="mt-2 text-[11px] text-slate-500 leading-snug">
-          ※「あり」は（分針が12をまたいで）答えの「時」が変わる問題だけを出します。
+        <div id="crossHelp" class="mt-2 text-[11px] text-slate-500 leading-snug">
+          ※「あり」は（分針が12をまたいで）答えの「時」が変わる問題も出します。
         </div>
       </div>
 
-      <!-- 出題方向 -->
       <div>
         <label class="block text-sm font-semibold text-slate-700 mb-2">出題方向</label>
         <select id="direction" class="w-full p-1.5 border rounded bg-white text-sm">
@@ -79,7 +74,6 @@
         </select>
       </div>
 
-      <!-- 表示形式 -->
       <div>
         <label class="block text-sm font-semibold text-slate-700 mb-2">表示形式</label>
         <div class="flex gap-1">
@@ -88,7 +82,6 @@
         </div>
       </div>
 
-      <!-- 解答形式 -->
       <div>
         <label class="block text-sm font-semibold text-slate-700 mb-2">解答形式</label>
         <div class="flex gap-1">
@@ -97,10 +90,10 @@
         </div>
       </div>
 
-      <!-- 問題数 -->
       <div>
-        <label class="block text-sm font-semibold text-slate-700 mb-2">問題数</label>
-        <input id="problemCount" type="number" value="8" class="w-full p-1.5 border rounded text-sm" />
+        <label class="block text-sm font-semibold text-slate-700 mb-2">問題数（最大8）</label>
+        <input id="problemCount" type="number" value="8" min="1" max="8"
+               class="w-full p-1.5 border rounded text-sm" />
       </div>
     </div>
 
@@ -115,20 +108,24 @@
   </div>
 
   <!-- 印刷エリア -->
-  <div id="printable-area" class="bg-white shadow-xl w-[210mm] min-h-[297mm] p-[15mm] flex flex-col font-normal text-[12pt]">
-    <div class="flex justify-end mb-10">
+  <div id="printable-area"
+       class="bg-white shadow-xl w-[210mm] min-h-[297mm] p-[20mm] flex flex-col font-normal text-[12pt]">
+
+    <!-- 名前欄（右寄せ） -->
+    <div class="flex justify-end mb-8">
       <div class="text-[14pt]">
-        名前：<span class="inline-block w-64 border-b border-black ml-2 h-8"></span>
+        名前：<span class="inline-block w-72 border-b border-black ml-2 h-8"></span>
       </div>
     </div>
 
-    <div id="problemList" class="flex flex-col gap-6"></div>
+    <!-- ★残り高さを全部使って、8問を均等に“のびのび”配置 -->
+    <div id="problemList" class="flex-1 flex flex-col justify-between"></div>
   </div>
 
 <script>
   const state = {
     interval: 5,
-    crossTwelve: false,
+    crossTwelve: false, // false: またがないのみ / true: またぐ問題も出す（混ざる）
     direction: 'both',
     format: 'text',
     answerType: 'desc',
@@ -147,7 +144,7 @@
     return e;
   };
 
-  function createAnalogClock(hourDisp, minute, size = 55) {
+  function createAnalogClock(hourDisp, minute, size = 52) {
     const svgNS = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(svgNS, "svg");
     svg.setAttribute("width", size);
@@ -188,8 +185,7 @@
     const mAngle = minute * 6;
 
     const hHand = document.createElementNS(svgNS, "line");
-    hHand.setAttribute("x1", "50");
-    hHand.setAttribute("y1", "50");
+    hHand.setAttribute("x1", "50"); hHand.setAttribute("y1", "50");
     hHand.setAttribute("x2", 50 + 24 * Math.sin(hAngle * (Math.PI / 180)));
     hHand.setAttribute("y2", 50 - 24 * Math.cos(hAngle * (Math.PI / 180)));
     hHand.setAttribute("stroke", "black");
@@ -198,8 +194,7 @@
     svg.appendChild(hHand);
 
     const mHand = document.createElementNS(svgNS, "line");
-    mHand.setAttribute("x1", "50");
-    mHand.setAttribute("y1", "50");
+    mHand.setAttribute("x1", "50"); mHand.setAttribute("y1", "50");
     mHand.setAttribute("x2", 50 + 38 * Math.sin(mAngle * (Math.PI / 180)));
     mHand.setAttribute("y2", 50 - 38 * Math.cos(mAngle * (Math.PI / 180)));
     mHand.setAttribute("stroke", "black");
@@ -208,8 +203,7 @@
     svg.appendChild(mHand);
 
     const center = document.createElementNS(svgNS, "circle");
-    center.setAttribute("cx", "50");
-    center.setAttribute("cy", "50");
+    center.setAttribute("cx", "50"); center.setAttribute("cy", "50");
     center.setAttribute("r", "2.5");
     center.setAttribute("fill", "black");
     svg.appendChild(center);
@@ -220,9 +214,10 @@
   function generateProblems() {
     const newProblems = [];
     let attempts = 0;
-    const count = Math.max(1, Number(state.problemCount) || 8);
 
-    while (newProblems.length < count && attempts < 1500) {
+    const count = Math.max(1, Math.min(8, Number(state.problemCount) || 8)); // ★最大8で固定
+
+    while (newProblems.length < count && attempts < 2500) {
       attempts++;
 
       const baseHDisp = Math.floor(Math.random() * 12) + 1;
@@ -237,14 +232,14 @@
 
       const baseRawH = dispHourToRaw(baseHDisp);
       const baseTotal = baseRawH * 60 + baseM;
-
       const targetTotal = wrap12h(isAfter ? baseTotal + diff : baseTotal - diff);
 
       const baseHourRaw = Math.floor(baseTotal / 60);
       const targetHourRaw = Math.floor(targetTotal / 60);
       const hourChanges = baseHourRaw !== targetHourRaw;
 
-      if (state.crossTwelve !== hourChanges) continue;
+      // falseなら「またがない」だけ。trueなら混ざる（制限なし）
+      if (!state.crossTwelve && hourChanges) continue;
 
       const ansH = rawHourToDisp(targetHourRaw);
       const ansM = targetTotal % 60;
@@ -265,10 +260,8 @@
         baseM,
         diff,
         isAfter,
-        ansH,
-        ansM,
-        wrongH,
-        wrongM,
+        ansH, ansM,
+        wrongH, wrongM,
         choiceOrder: Math.random() > 0.5
       });
     }
@@ -282,43 +275,39 @@
     list.innerHTML = '';
 
     state.problems.forEach((p, idx) => {
-      // ★薄い線を削除：border-b / pb-2 をやめる
-      const row = el('div', 'flex items-center justify-between');
+      // ★写真っぽく：問題と解答欄を“寄せる”ため、右カラム幅を固定
+      const row = el('div', 'grid grid-cols-[auto_1fr_auto] items-center gap-3');
 
-      const left = el('div', 'flex items-center gap-1 overflow-hidden whitespace-nowrap');
-      left.appendChild(el('span', 'min-w-[2em]', `${idx + 1}．`));
+      // 左（番号）
+      row.appendChild(el('div', 'w-8 text-right', `${idx + 1}.`));
 
+      // 中（問題文）
+      const mid = el('div', 'whitespace-nowrap overflow-hidden');
       if (state.format === 'text') {
-        left.appendChild(el('span', '', `${p.baseH}時 ${p.baseM}分`));
-        left.appendChild(el('span', '', `の ${p.diff}分${p.isAfter ? '後' : '前'}は何時何分ですか。`));
+        mid.textContent = `${p.baseH}時 ${p.baseM}分の ${p.diff}分${p.isAfter ? '後' : '前'}は何時何分ですか。`;
       } else {
-        const wrap = el('div', 'flex items-center gap-1');
-        wrap.appendChild(createAnalogClock(p.baseH, p.baseM, 55));
-        // ★「この時刻の」→「この」
+        const wrap = el('span', 'inline-flex items-center gap-2');
+        wrap.appendChild(createAnalogClock(p.baseH, p.baseM, 52));
         wrap.appendChild(el('span', '', 'この'));
-        left.appendChild(wrap);
-        left.appendChild(el('span', '', ` ${p.diff}分${p.isAfter ? '後' : '前'}は何時何分ですか。`));
+        wrap.appendChild(el('span', '', ` ${p.diff}分${p.isAfter ? '後' : '前'}は何時何分ですか。`));
+        mid.appendChild(wrap);
       }
+      row.appendChild(mid);
 
-      const right = el('div', 'flex items-center gap-2 min-w-[260px] justify-end');
-
+      // 右（解答欄）…幅を少し小さめにして“寄せる”
+      const right = el('div', 'w-[60mm] flex justify-start'); // ★ここで寄せ具合調整
       if (state.answerType === 'desc') {
-        right.appendChild(el('span', 'w-44 border-b border-black h-8'));
+        right.appendChild(el('span', 'block w-full border-b border-black h-7'));
       } else {
         const AisAnswer = p.choiceOrder;
         const AText = AisAnswer ? `${p.ansH}時${p.ansM}分` : `${p.wrongH}時${p.wrongM}分`;
         const BText = AisAnswer ? `${p.wrongH}時${p.wrongM}分` : `${p.ansH}時${p.ansM}分`;
-
-        const choice = el('div', 'flex items-center text-[11pt] whitespace-nowrap');
-        choice.appendChild(el('span', '', `A・${AText}`));
-        // ★AとBの間を少し近づける：w-10 → w-8
-        choice.appendChild(el('span', 'inline-block w-8'));
-        choice.appendChild(el('span', '', `B・${BText}`));
+        const choice = el('div', 'whitespace-nowrap text-[11pt]');
+        choice.innerHTML = `A・${AText}<span class="inline-block w-6"></span>B・${BText}`;
         right.appendChild(choice);
       }
-
-      row.appendChild(left);
       row.appendChild(right);
+
       list.appendChild(row);
     });
   }
@@ -385,7 +374,9 @@
   });
 
   document.getElementById('problemCount').addEventListener('input', (e) => {
-    state.problemCount = Number(e.target.value) || 8;
+    const v = Number(e.target.value) || 8;
+    state.problemCount = Math.max(1, Math.min(8, v)); // ★最大8
+    e.target.value = state.problemCount;
   });
 
   document.getElementById('btnRefresh').addEventListener('click', generateProblems);
