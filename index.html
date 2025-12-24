@@ -15,18 +15,31 @@
 
   <style>
     body { font-family: "Noto Sans JP", system-ui, -apple-system, "Segoe UI", sans-serif; }
-    /* Tailwind CDNだと print:variant が効かないので自前で用意 */
+
     @media print {
       @page { size: A4 portrait; margin: 0; }
-      body { background: white; padding: 0; margin: 0; }
+
+      /* はみ出し→空白2枚目の定番要因を潰す */
+      * { box-sizing: border-box !important; }
+      html, body { height: auto !important; overflow: visible !important; }
+
+      body { background: white !important; padding: 0 !important; margin: 0 !important; }
       .print-hidden { display: none !important; }
+
       #printable-area {
         border: none !important;
         box-shadow: none !important;
-        width: 100% !important;
-        height: 100% !important;
+
+        /* ★印刷時は「固定A4枠」(min-height)を外して、内容が1枚なら1枚に */
+        width: 210mm !important;
+        height: auto !important;
+        min-height: 0 !important;
+
         margin: 0 !important;
         padding: 15mm !important;
+
+        /* 余計なオーバーフローで改ページさせない */
+        overflow: visible !important;
       }
     }
   </style>
@@ -59,8 +72,8 @@
           <button id="crossNo" class="flex-1 py-1.5 rounded border text-sm bg-sky-500 text-white border-sky-500">なし</button>
           <button id="crossYes" class="flex-1 py-1.5 rounded border text-sm bg-white hover:bg-sky-50">あり</button>
         </div>
-        <div class="mt-2 text-[11px] text-slate-500 leading-snug">
-          ※「あり」は（分針が12をまたいで）答えの「時」が変わる問題だけを出します。
+        <div id="crossHelp" class="mt-2 text-[11px] text-slate-500 leading-snug">
+          ※「あり」は（分針が12をまたいで）答えの「時」が変わる問題も出します。
         </div>
       </div>
 
@@ -92,10 +105,10 @@
         </div>
       </div>
 
-      <!-- 問題数 -->
+      <!-- 問題数（デフォルト8） -->
       <div>
         <label class="block text-sm font-semibold text-slate-700 mb-2">問題数</label>
-        <input id="problemCount" type="number" value="12" class="w-full p-1.5 border rounded text-sm" />
+        <input id="problemCount" type="number" value="8" class="w-full p-1.5 border rounded text-sm" />
       </div>
     </div>
 
@@ -121,20 +134,20 @@
   </div>
 
 <script>
-  // ====== 状態 ======
   const state = {
     interval: 5,
-    crossTwelve: false, // false: 時が変わらない / true: 時が変わる
+    // false: 時が変わらない問題だけ
+    // true : 12をまたぐ問題も「出る」（＝混ざる）
+    crossTwelve: false,
     direction: 'both',
-    format: 'text',     // 'text' | 'clock'
-    answerType: 'desc', // 'desc' | 'choice'
-    problemCount: 12,
+    format: 'text',
+    answerType: 'desc',
+    problemCount: 8,
     problems: [],
   };
 
-  // ====== ユーティリティ ======
-  const wrap12h = (t) => ((t % 720) + 720) % 720;   // 0..719
-  const dispHourToRaw = (h) => (h % 12);            // 12->0
+  const wrap12h = (t) => ((t % 720) + 720) % 720;
+  const dispHourToRaw = (h) => (h % 12);
   const rawHourToDisp = (hRaw) => (hRaw === 0 ? 12 : hRaw);
 
   const el = (tag, cls, text) => {
@@ -144,7 +157,6 @@
     return e;
   };
 
-  // ====== アナログ時計SVG生成 ======
   function createAnalogClock(hourDisp, minute, size = 55) {
     const svgNS = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(svgNS, "svg");
@@ -215,13 +227,12 @@
     return svg;
   }
 
-  // ====== 問題生成（要件どおり：時が変わる/変わらないで分ける） ======
   function generateProblems() {
     const newProblems = [];
     let attempts = 0;
-    const count = Math.max(1, Number(state.problemCount) || 12);
+    const count = Math.max(1, Number(state.problemCount) || 8);
 
-    while (newProblems.length < count && attempts < 1500) {
+    while (newProblems.length < count && attempts < 2000) {
       attempts++;
 
       const baseHDisp = Math.floor(Math.random() * 12) + 1;
@@ -241,10 +252,12 @@
 
       const baseHourRaw = Math.floor(baseTotal / 60);
       const targetHourRaw = Math.floor(targetTotal / 60);
-      const hourChanges = baseHourRaw !== targetHourRaw; // ←ここが「分針が12をまたぐ」扱い
+      const hourChanges = baseHourRaw !== targetHourRaw;
 
-      // false: 時が変わらない / true: 時が変わる
-      if (state.crossTwelve !== hourChanges) continue;
+      // ★ここが変更点：
+      // crossTwelve=false → 時が変わる問題は出さない
+      // crossTwelve=true  → 時が変わる問題「も」出す（＝混ざる）
+      if (!state.crossTwelve && hourChanges) continue;
 
       const ansH = rawHourToDisp(targetHourRaw);
       const ansM = targetTotal % 60;
@@ -277,15 +290,14 @@
     renderProblems();
   }
 
-  // ====== 表示 ======
   function renderProblems() {
     const list = document.getElementById('problemList');
     list.innerHTML = '';
 
     state.problems.forEach((p, idx) => {
-      const row = el('div', 'flex items-center justify-between border-b border-gray-100 pb-2');
+      // 薄い線なし
+      const row = el('div', 'flex items-center justify-between');
 
-      // 問題文
       const left = el('div', 'flex items-center gap-1 overflow-hidden whitespace-nowrap');
       left.appendChild(el('span', 'min-w-[2em]', `${idx + 1}．`));
 
@@ -295,16 +307,14 @@
       } else {
         const wrap = el('div', 'flex items-center gap-1');
         wrap.appendChild(createAnalogClock(p.baseH, p.baseM, 55));
-        wrap.appendChild(el('span', '', 'この時刻の'));
+        wrap.appendChild(el('span', '', 'この'));
         left.appendChild(wrap);
         left.appendChild(el('span', '', ` ${p.diff}分${p.isAfter ? '後' : '前'}は何時何分ですか。`));
       }
 
-      // 解答欄
       const right = el('div', 'flex items-center gap-2 min-w-[260px] justify-end');
 
       if (state.answerType === 'desc') {
-        // 名前欄と同じ太さ（border-b）
         right.appendChild(el('span', 'w-44 border-b border-black h-8'));
       } else {
         const AisAnswer = p.choiceOrder;
@@ -313,7 +323,7 @@
 
         const choice = el('div', 'flex items-center text-[11pt] whitespace-nowrap');
         choice.appendChild(el('span', '', `A・${AText}`));
-        choice.appendChild(el('span', 'inline-block w-10'));
+        choice.appendChild(el('span', 'inline-block w-8')); // 近づけ
         choice.appendChild(el('span', '', `B・${BText}`));
         right.appendChild(choice);
       }
@@ -324,7 +334,6 @@
     });
   }
 
-  // ====== UI反映（ボタン色） ======
   function setActive(btns, activeBtn) {
     btns.forEach(b => {
       b.classList.remove('bg-sky-500','text-white','border-sky-500');
@@ -334,7 +343,6 @@
     activeBtn.classList.add('bg-sky-500','text-white','border-sky-500');
   }
 
-  // ====== イベント ======
   document.querySelectorAll('.intervalBtn').forEach(btn => {
     btn.addEventListener('click', () => {
       state.interval = Number(btn.dataset.interval);
@@ -345,14 +353,19 @@
 
   const crossNo = document.getElementById('crossNo');
   const crossYes = document.getElementById('crossYes');
+  const crossHelp = document.getElementById('crossHelp');
+
   crossNo.addEventListener('click', () => {
     state.crossTwelve = false;
     setActive([crossNo, crossYes], crossNo);
+    // 説明文は指定のまま（「あり」の説明なので表示だけ維持でOK）
     generateProblems();
   });
   crossYes.addEventListener('click', () => {
     state.crossTwelve = true;
     setActive([crossNo, crossYes], crossYes);
+    // 説明文（指定どおり）
+    crossHelp.textContent = '※「あり」は（分針が12をまたいで）答えの「時」が変わる問題も出します。';
     generateProblems();
   });
 
@@ -388,13 +401,12 @@
   });
 
   document.getElementById('problemCount').addEventListener('input', (e) => {
-    state.problemCount = Number(e.target.value) || 12;
+    state.problemCount = Number(e.target.value) || 8;
   });
 
   document.getElementById('btnRefresh').addEventListener('click', generateProblems);
   document.getElementById('btnPrint').addEventListener('click', () => window.print());
 
-  // 初期生成
   generateProblems();
 </script>
 </body>
