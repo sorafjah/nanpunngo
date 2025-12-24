@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>時計プリント（何分後・何分前）</title>
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- 日本語フォント -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    body { font-family: "Noto Sans JP", system-ui, -apple-system, "Segoe UI", sans-serif; }
+    /* Tailwind CDNだと print:variant が効かないので自前で用意 */
+    @media print {
+      @page { size: A4 portrait; margin: 0; }
+      body { background: white; padding: 0; margin: 0; }
+      .print-hidden { display: none !important; }
+      #printable-area {
+        border: none !important;
+        box-shadow: none !important;
+        width: 100% !important;
+        height: 100% !important;
+        margin: 0 !important;
+        padding: 15mm !important;
+      }
+    }
+  </style>
+</head>
+
+<body class="min-h-screen bg-slate-50 flex flex-col items-center p-4 sm:p-8">
+
+  <!-- 設定パネル -->
+  <div class="print-hidden w-full max-w-4xl bg-white rounded-xl shadow-sm p-6 mb-8 border border-slate-200">
+    <div class="flex items-center gap-2 mb-6 border-b pb-4">
+      <div class="w-8 h-8 rounded-lg bg-sky-100 flex items-center justify-center text-sky-700 font-bold">⚙</div>
+      <h1 class="text-lg font-bold text-slate-800">問題作成の設定</h1>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- 時間の刻み -->
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-2">時間の刻み</label>
+        <div class="flex gap-1">
+          <button data-interval="1" class="intervalBtn flex-1 py-1.5 rounded border transition text-sm bg-white hover:bg-sky-50 text-slate-600">1分</button>
+          <button data-interval="5" class="intervalBtn flex-1 py-1.5 rounded border transition text-sm bg-sky-500 text-white border-sky-500">5分</button>
+          <button data-interval="10" class="intervalBtn flex-1 py-1.5 rounded border transition text-sm bg-white hover:bg-sky-50 text-slate-600">10分</button>
+        </div>
+      </div>
+
+      <!-- 12をまたぐ問題 -->
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-2">12をまたぐ問題</label>
+        <div class="flex gap-1">
+          <button id="crossNo" class="flex-1 py-1.5 rounded border text-sm bg-sky-500 text-white border-sky-500">なし</button>
+          <button id="crossYes" class="flex-1 py-1.5 rounded border text-sm bg-white hover:bg-sky-50">あり</button>
+        </div>
+        <div class="mt-2 text-[11px] text-slate-500 leading-snug">
+          ※「あり」は（分針が12をまたいで）答えの「時」が変わる問題だけを出します。
+        </div>
+      </div>
+
+      <!-- 出題方向 -->
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-2">出題方向</label>
+        <select id="direction" class="w-full p-1.5 border rounded bg-white text-sm">
+          <option value="after">何分後だけ</option>
+          <option value="before">何分前だけ</option>
+          <option value="both" selected>前後まぜる</option>
+        </select>
+      </div>
+
+      <!-- 表示形式 -->
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-2">表示形式</label>
+        <div class="flex gap-1">
+          <button id="fmtText" class="fmtBtn flex-1 py-1.5 rounded border text-sm bg-sky-500 text-white border-sky-500">文字</button>
+          <button id="fmtClock" class="fmtBtn flex-1 py-1.5 rounded border text-sm bg-white hover:bg-sky-50">時計</button>
+        </div>
+      </div>
+
+      <!-- 解答形式 -->
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-2">解答形式</label>
+        <div class="flex gap-1">
+          <button id="ansDesc" class="ansBtn flex-1 py-1.5 rounded border text-sm bg-sky-500 text-white border-sky-500">記述式</button>
+          <button id="ansChoice" class="ansBtn flex-1 py-1.5 rounded border text-sm bg-white hover:bg-sky-50">二択式</button>
+        </div>
+      </div>
+
+      <!-- 問題数 -->
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-2">問題数</label>
+        <input id="problemCount" type="number" value="12" class="w-full p-1.5 border rounded text-sm" />
+      </div>
+    </div>
+
+    <div class="flex gap-4 mt-8 pt-6 border-t">
+      <button id="btnRefresh" class="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white py-2.5 rounded-lg font-bold hover:bg-blue-700 transition">
+        🔄 問題を更新
+      </button>
+      <button id="btnPrint" class="flex-1 flex items-center justify-center gap-2 bg-sky-500 text-white py-2.5 rounded-lg font-bold hover:bg-sky-600 transition shadow-sm">
+        🖨 印刷する / PDF保存
+      </button>
+    </div>
+  </div>
+
+  <!-- 印刷エリア -->
+  <div id="printable-area" class="bg-white shadow-xl w-[210mm] min-h-[297mm] p-[15mm] flex flex-col font-normal text-[12pt]">
+    <div class="flex justify-end mb-10">
+      <div class="text-[14pt]">
+        名前：<span class="inline-block w-64 border-b border-black ml-2 h-8"></span>
+      </div>
+    </div>
+
+    <div id="problemList" class="flex flex-col gap-6"></div>
+  </div>
+
+<script>
+  // ====== 状態 ======
+  const state = {
+    interval: 5,
+    crossTwelve: false, // false: 時が変わらない / true: 時が変わる
+    direction: 'both',
+    format: 'text',     // 'text' | 'clock'
+    answerType: 'desc', // 'desc' | 'choice'
+    problemCount: 12,
+    problems: [],
+  };
+
+  // ====== ユーティリティ ======
+  const wrap12h = (t) => ((t % 720) + 720) % 720;   // 0..719
+  const dispHourToRaw = (h) => (h % 12);            // 12->0
+  const rawHourToDisp = (hRaw) => (hRaw === 0 ? 12 : hRaw);
+
+  const el = (tag, cls, text) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  };
+
+  // ====== アナログ時計SVG生成 ======
+  function createAnalogClock(hourDisp, minute, size = 55) {
+    const svgNS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(svgNS, "svg");
+    svg.setAttribute("width", size);
+    svg.setAttribute("height", size);
+    svg.setAttribute("viewBox", "0 0 100 100");
+    svg.setAttribute("class", "inline-block align-middle");
+
+    const circle = document.createElementNS(svgNS, "circle");
+    circle.setAttribute("cx", "50");
+    circle.setAttribute("cy", "50");
+    circle.setAttribute("r", "46");
+    circle.setAttribute("fill", "none");
+    circle.setAttribute("stroke", "black");
+    circle.setAttribute("stroke-width", "1.5");
+    svg.appendChild(circle);
+
+    for (let i = 0; i < 60; i++) {
+      const angle = i * 6 * (Math.PI / 180);
+      const isFive = i % 5 === 0;
+      const length = isFive ? 8 : 4;
+      const strokeW = isFive ? 1.5 : 0.6;
+      const x1 = 50 + (46 - length) * Math.sin(angle);
+      const y1 = 50 - (46 - length) * Math.cos(angle);
+      const x2 = 50 + 46 * Math.sin(angle);
+      const y2 = 50 - 46 * Math.cos(angle);
+
+      const line = document.createElementNS(svgNS, "line");
+      line.setAttribute("x1", x1);
+      line.setAttribute("y1", y1);
+      line.setAttribute("x2", x2);
+      line.setAttribute("y2", y2);
+      line.setAttribute("stroke", "black");
+      line.setAttribute("stroke-width", strokeW);
+      svg.appendChild(line);
+    }
+
+    const hAngle = (hourDisp % 12) * 30 + minute * 0.5;
+    const mAngle = minute * 6;
+
+    const hHand = document.createElementNS(svgNS, "line");
+    hHand.setAttribute("x1", "50");
+    hHand.setAttribute("y1", "50");
+    hHand.setAttribute("x2", 50 + 24 * Math.sin(hAngle * (Math.PI / 180)));
+    hHand.setAttribute("y2", 50 - 24 * Math.cos(hAngle * (Math.PI / 180)));
+    hHand.setAttribute("stroke", "black");
+    hHand.setAttribute("stroke-width", "3");
+    hHand.setAttribute("stroke-linecap", "round");
+    svg.appendChild(hHand);
+
+    const mHand = document.createElementNS(svgNS, "line");
+    mHand.setAttribute("x1", "50");
+    mHand.setAttribute("y1", "50");
+    mHand.setAttribute("x2", 50 + 38 * Math.sin(mAngle * (Math.PI / 180)));
+    mHand.setAttribute("y2", 50 - 38 * Math.cos(mAngle * (Math.PI / 180)));
+    mHand.setAttribute("stroke", "black");
+    mHand.setAttribute("stroke-width", "1.8");
+    mHand.setAttribute("stroke-linecap", "round");
+    svg.appendChild(mHand);
+
+    const center = document.createElementNS(svgNS, "circle");
+    center.setAttribute("cx", "50");
+    center.setAttribute("cy", "50");
+    center.setAttribute("r", "2.5");
+    center.setAttribute("fill", "black");
+    svg.appendChild(center);
+
+    return svg;
+  }
+
+  // ====== 問題生成（要件どおり：時が変わる/変わらないで分ける） ======
+  function generateProblems() {
+    const newProblems = [];
+    let attempts = 0;
+    const count = Math.max(1, Number(state.problemCount) || 12);
+
+    while (newProblems.length < count && attempts < 1500) {
+      attempts++;
+
+      const baseHDisp = Math.floor(Math.random() * 12) + 1;
+      const baseM = Math.floor(Math.random() * 60);
+
+      let isAfter;
+      if (state.direction === 'after') isAfter = true;
+      else if (state.direction === 'before') isAfter = false;
+      else isAfter = Math.random() > 0.5;
+
+      const diff = state.interval * (Math.floor(Math.random() * 6) + 1);
+
+      const baseRawH = dispHourToRaw(baseHDisp);
+      const baseTotal = baseRawH * 60 + baseM;
+
+      const targetTotal = wrap12h(isAfter ? baseTotal + diff : baseTotal - diff);
+
+      const baseHourRaw = Math.floor(baseTotal / 60);
+      const targetHourRaw = Math.floor(targetTotal / 60);
+      const hourChanges = baseHourRaw !== targetHourRaw; // ←ここが「分針が12をまたぐ」扱い
+
+      // false: 時が変わらない / true: 時が変わる
+      if (state.crossTwelve !== hourChanges) continue;
+
+      const ansH = rawHourToDisp(targetHourRaw);
+      const ansM = targetTotal % 60;
+
+      let wrongDiff = state.interval * (Math.random() > 0.5 ? 1 : -1);
+      if (diff <= state.interval && wrongDiff < 0) wrongDiff = state.interval;
+
+      const wrongTotal = wrap12h(targetTotal + wrongDiff);
+      const wrongHourRaw = Math.floor(wrongTotal / 60);
+      const wrongH = rawHourToDisp(wrongHourRaw);
+      const wrongM = wrongTotal % 60;
+
+      if (ansH === wrongH && ansM === wrongM) continue;
+
+      newProblems.push({
+        id: newProblems.length,
+        baseH: baseHDisp,
+        baseM,
+        diff,
+        isAfter,
+        ansH,
+        ansM,
+        wrongH,
+        wrongM,
+        choiceOrder: Math.random() > 0.5
+      });
+    }
+
+    state.problems = newProblems;
+    renderProblems();
+  }
+
+  // ====== 表示 ======
+  function renderProblems() {
+    const list = document.getElementById('problemList');
+    list.innerHTML = '';
+
+    state.problems.forEach((p, idx) => {
+      const row = el('div', 'flex items-center justify-between border-b border-gray-100 pb-2');
+
+      // 問題文
+      const left = el('div', 'flex items-center gap-1 overflow-hidden whitespace-nowrap');
+      left.appendChild(el('span', 'min-w-[2em]', `${idx + 1}．`));
+
+      if (state.format === 'text') {
+        left.appendChild(el('span', '', `${p.baseH}時 ${p.baseM}分`));
+        left.appendChild(el('span', '', `の ${p.diff}分${p.isAfter ? '後' : '前'}は何時何分ですか。`));
+      } else {
+        const wrap = el('div', 'flex items-center gap-1');
+        wrap.appendChild(createAnalogClock(p.baseH, p.baseM, 55));
+        wrap.appendChild(el('span', '', 'この時刻の'));
+        left.appendChild(wrap);
+        left.appendChild(el('span', '', ` ${p.diff}分${p.isAfter ? '後' : '前'}は何時何分ですか。`));
+      }
+
+      // 解答欄
+      const right = el('div', 'flex items-center gap-2 min-w-[260px] justify-end');
+
+      if (state.answerType === 'desc') {
+        // 名前欄と同じ太さ（border-b）
+        right.appendChild(el('span', 'w-44 border-b border-black h-8'));
+      } else {
+        const AisAnswer = p.choiceOrder;
+        const AText = AisAnswer ? `${p.ansH}時${p.ansM}分` : `${p.wrongH}時${p.wrongM}分`;
+        const BText = AisAnswer ? `${p.wrongH}時${p.wrongM}分` : `${p.ansH}時${p.ansM}分`;
+
+        const choice = el('div', 'flex items-center text-[11pt] whitespace-nowrap');
+        choice.appendChild(el('span', '', `A・${AText}`));
+        choice.appendChild(el('span', 'inline-block w-10'));
+        choice.appendChild(el('span', '', `B・${BText}`));
+        right.appendChild(choice);
+      }
+
+      row.appendChild(left);
+      row.appendChild(right);
+      list.appendChild(row);
+    });
+  }
+
+  // ====== UI反映（ボタン色） ======
+  function setActive(btns, activeBtn) {
+    btns.forEach(b => {
+      b.classList.remove('bg-sky-500','text-white','border-sky-500');
+      b.classList.add('bg-white');
+    });
+    activeBtn.classList.remove('bg-white');
+    activeBtn.classList.add('bg-sky-500','text-white','border-sky-500');
+  }
+
+  // ====== イベント ======
+  document.querySelectorAll('.intervalBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.interval = Number(btn.dataset.interval);
+      setActive([...document.querySelectorAll('.intervalBtn')], btn);
+      generateProblems();
+    });
+  });
+
+  const crossNo = document.getElementById('crossNo');
+  const crossYes = document.getElementById('crossYes');
+  crossNo.addEventListener('click', () => {
+    state.crossTwelve = false;
+    setActive([crossNo, crossYes], crossNo);
+    generateProblems();
+  });
+  crossYes.addEventListener('click', () => {
+    state.crossTwelve = true;
+    setActive([crossNo, crossYes], crossYes);
+    generateProblems();
+  });
+
+  document.getElementById('direction').addEventListener('change', (e) => {
+    state.direction = e.target.value;
+    generateProblems();
+  });
+
+  const fmtText = document.getElementById('fmtText');
+  const fmtClock = document.getElementById('fmtClock');
+  fmtText.addEventListener('click', () => {
+    state.format = 'text';
+    setActive([fmtText, fmtClock], fmtText);
+    renderProblems();
+  });
+  fmtClock.addEventListener('click', () => {
+    state.format = 'clock';
+    setActive([fmtText, fmtClock], fmtClock);
+    renderProblems();
+  });
+
+  const ansDesc = document.getElementById('ansDesc');
+  const ansChoice = document.getElementById('ansChoice');
+  ansDesc.addEventListener('click', () => {
+    state.answerType = 'desc';
+    setActive([ansDesc, ansChoice], ansDesc);
+    renderProblems();
+  });
+  ansChoice.addEventListener('click', () => {
+    state.answerType = 'choice';
+    setActive([ansDesc, ansChoice], ansChoice);
+    renderProblems();
+  });
+
+  document.getElementById('problemCount').addEventListener('input', (e) => {
+    state.problemCount = Number(e.target.value) || 12;
+  });
+
+  document.getElementById('btnRefresh').addEventListener('click', generateProblems);
+  document.getElementById('btnPrint').addEventListener('click', () => window.print());
+
+  // 初期生成
+  generateProblems();
+</script>
+</body>
+</html>
