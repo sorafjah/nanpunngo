@@ -18,6 +18,12 @@
                 border: none !important;
                 box-shadow: none !important;
             }
+            /* 印刷時は編集枠を消す */
+            .editable { 
+                border-color: transparent !important; 
+                background-color: transparent !important; 
+                outline: none !important; 
+            }
         }
         .print-page {
             width: 210mm;
@@ -48,11 +54,28 @@
             min-width: 120px;
             margin-left: 5px;
         }
-        /* カスタムラジオボタンのスタイル：選択時を水色に変更 */
+        /* カスタムラジオボタンのスタイル */
         .peer:checked + span {
             background-color: #0ea5e9; /* sky-500 */
             color: white;
             border-color: #0ea5e9;
+        }
+        /* クリックして編集できる要素のスタイル */
+        .editable {
+            padding: 2px 4px;
+            border-radius: 4px;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+            cursor: text;
+        }
+        .editable:hover {
+            border-color: #cbd5e1; /* slate-300 */
+            background-color: #f8fafc; /* slate-50 */
+        }
+        .editable:focus {
+            outline: none;
+            border-color: #3b82f6; /* blue-500 */
+            background-color: #eff6ff; /* blue-50 */
         }
     </style>
 </head>
@@ -111,16 +134,16 @@
                 </div>
             </div>
 
-            <div>
-                <label class="block font-bold mb-2">解答形式</label>
+            <div class="bg-blue-50 p-3 rounded border border-blue-100">
+                <label class="block font-bold mb-2 text-blue-800">解答形式（作成後も切替可）</label>
                 <div class="flex gap-4">
                     <label class="inline-flex items-center"><input type="radio" name="format" value="write" checked> <span class="ml-2">記述式</span></label>
-                    <label class="inline-flex items-center"><input type="radio" name="format" value="choice"> <span class="ml-2">2択式</span></label>
+                    <label class="inline-flex items-center"><input type="radio" name="format" value="choice"> <span class="ml-2">4択式</span></label>
                 </div>
             </div>
 
-            <div>
-                <label class="block font-bold mb-2">表示方法</label>
+            <div class="bg-blue-50 p-3 rounded border border-blue-100">
+                <label class="block font-bold mb-2 text-blue-800">表示方法（作成後も切替可）</label>
                 <div class="flex gap-4">
                     <label class="inline-flex items-center"><input type="radio" name="display" value="text" checked> <span class="ml-2">数字</span></label>
                     <label class="inline-flex items-center"><input type="radio" name="display" value="clock"> <span class="ml-2">時計画像</span></label>
@@ -129,13 +152,14 @@
         </div>
 
         <div class="mt-8 flex gap-4">
-            <button onclick="generateWorksheet()" class="flex-1 bg-sky-500 text-white font-bold py-3 rounded hover:bg-sky-600 transition">
-                問題を作る
+            <button onclick="generateDataAndRender()" class="flex-1 bg-sky-500 text-white font-bold py-3 rounded hover:bg-sky-600 transition shadow">
+                新しく問題を作る
             </button>
-            <button onclick="window.print()" class="flex-1 bg-blue-700 text-white font-bold py-3 rounded hover:bg-blue-800 transition">
+            <button onclick="window.print()" class="flex-1 bg-blue-700 text-white font-bold py-3 rounded hover:bg-blue-800 transition shadow">
                 印刷する
             </button>
         </div>
+        <p class="text-xs text-gray-500 mt-3 text-center">※ プリント部分の文字や数字は、クリックして直接書き直すことができます。</p>
     </div>
 
     <!-- プリント本体 -->
@@ -152,12 +176,23 @@
     </div>
 
     <script>
+        // 生成した問題データを保持する配列（表示切り替え用）
+        let currentQuestionsData = [];
+
+        // 時刻を文字列にするヘルパー
+        const formatTime = (totalMin) => {
+            let m = (totalMin % 60 + 60) % 60;
+            let h = Math.floor(totalMin / 60) % 12;
+            if (h <= 0) h += 12;
+            return `${h}時${m === 0 ? '' : m + '分'}`;
+        };
+
+        // 時計のSVGを描画
         function createClockSVG(hour, minute) {
             const hDegree = (hour % 12) * 30 + (minute / 60) * 30;
             const mDegree = minute * 6;
             
             let marks = '';
-            // 60分の目盛り
             for (let i = 0; i < 60; i++) {
                 const angle = i * 6 * Math.PI / 180;
                 const isFive = i % 5 === 0;
@@ -170,7 +205,6 @@
                 marks += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="black" stroke-width="${isFive ? 1.5 : 0.5}" />`;
             }
 
-            // 数字1-12：目盛りに当たらないよう半径を36から33.5へ微調整
             let numbers = '';
             for (let i = 1; i <= 12; i++) {
                 const angle = i * 30 * Math.PI / 180;
@@ -181,47 +215,72 @@
             
             return `
                 <svg viewBox="0 0 100 100" class="clock-svg mx-auto">
-                    <!-- 外枠 -->
                     <circle cx="50" cy="50" r="46" fill="none" stroke="black" stroke-width="1" />
                     ${marks}
                     ${numbers}
-                    <!-- 時針 -->
                     <line x1="50" y1="50" x2="${50 + 22 * Math.sin(hDegree * Math.PI / 180)}" y2="${50 - 22 * Math.cos(hDegree * Math.PI / 180)}" stroke="black" stroke-width="2.5" stroke-linecap="round" />
-                    <!-- 分針 -->
                     <line x1="50" y1="50" x2="${50 + 38 * Math.sin(mDegree * Math.PI / 180)}" y2="${50 - 38 * Math.cos(mDegree * Math.PI / 180)}" stroke="black" stroke-width="1.5" stroke-linecap="round" />
                     <circle cx="50" cy="50" r="2" fill="black" />
                 </svg>
             `;
         }
 
-        function generateWorksheet() {
-            const container = document.getElementById('questions-container');
-            if (!container) return;
-            container.innerHTML = '';
+        // 4択式の選択肢（正解＋ダミー3つ）を生成
+        function generateChoices(origH, origM, diff, isAfter) {
+            const correctTotal = origH * 60 + origM + (isAfter ? diff : -diff);
+            const correctStr = formatTime(correctTotal);
+            const choicesSet = new Set([correctStr]);
 
+            // ダミー1: 前後逆の計算
+            const wrong1Total = origH * 60 + origM + (isAfter ? -diff : diff);
+            choicesSet.add(formatTime(wrong1Total));
+
+            // ダミー2: 時の読み間違い（主に1時間進めて読んでしまうミス）
+            const wrong2Total = (origH + 1) * 60 + origM + (isAfter ? diff : -diff);
+            choicesSet.add(formatTime(wrong2Total));
+
+            // ダミー3: 長短針の読み間違い的要素（長針の指す数字を「時」として読んでしまう）
+            let swappedH = Math.floor(origM / 5);
+            if (swappedH === 0) swappedH = 12;
+            let swappedM = origH * 5;
+            let swappedTotal = swappedH * 60 + swappedM + (isAfter ? diff : -diff);
+            choicesSet.add(formatTime(swappedTotal));
+
+            // もし重複して4つに満たない場合は、分計算ミスを追加
+            const wrongOffsets = [10, -10, 5, -5, 20];
+            for (let offset of wrongOffsets) {
+                if (choicesSet.size >= 4) break;
+                choicesSet.add(formatTime(correctTotal + offset));
+            }
+
+            // 配列にしてシャッフル
+            const choicesArr = Array.from(choicesSet).slice(0, 4);
+            return choicesArr.sort(() => Math.random() - 0.5);
+        }
+
+        // 問題データを作成して配列に保持する
+        function generateDataAndRender() {
             const qCountEl = document.querySelector('input[name="qCount"]:checked');
             const stepEl = document.querySelector('input[name="step"]:checked');
             const crossEl = document.querySelector('input[name="cross"]:checked');
             const directionEl = document.querySelector('input[name="direction"]:checked');
-            const formatEl = document.querySelector('input[name="format"]:checked');
-            const displayEl = document.querySelector('input[name="display"]:checked');
 
-            if (!qCountEl || !stepEl || !crossEl || !directionEl || !formatEl || !displayEl) {
-                return;
-            }
+            if (!qCountEl || !stepEl || !crossEl || !directionEl) return;
 
             const qCount = parseInt(qCountEl.value);
             const step = parseInt(stepEl.value);
             const crossAllowed = crossEl.value === 'yes';
             const direction = directionEl.value;
-            const format = formatEl.value;
-            const display = displayEl.value;
+
+            currentQuestionsData = []; // 初期化
 
             for (let i = 0; i < qCount; i++) {
                 let hour, minute, diff, isAfter;
                 let valid = false;
+                let loopCount = 0;
 
-                while (!valid) {
+                while (!valid && loopCount < 1000) {
+                    loopCount++;
                     hour = Math.floor(Math.random() * 12) + 1;
                     minute = Math.floor(Math.random() * (60 / step)) * step;
                     
@@ -250,56 +309,87 @@
                     }
                 }
 
+                // 選択肢の生成
+                const choices = generateChoices(hour, minute, diff, isAfter);
+
+                currentQuestionsData.push({
+                    id: i + 1,
+                    hour, minute, diff, isAfter, choices
+                });
+            }
+
+            // 描画処理へ
+            renderWorksheet();
+        }
+
+        // 保持している問題データと表示設定をもとにHTMLを描画する
+        function renderWorksheet() {
+            const container = document.getElementById('questions-container');
+            if (!container || currentQuestionsData.length === 0) return;
+            container.innerHTML = '';
+
+            const format = document.querySelector('input[name="format"]:checked').value;
+            const display = document.querySelector('input[name="display"]:checked').value;
+
+            currentQuestionsData.forEach(q => {
                 const qDiv = document.createElement('div');
                 qDiv.className = 'p-2 flex flex-col items-start relative';
                 
+                // 時間表示部（テキストか時計か）
                 let timeHeader = '';
+                const timeText = `${q.hour}時${q.minute === 0 ? '' : q.minute + '分'}`;
                 if (display === 'text') {
-                    timeHeader = `<div class="q-text">${hour}時${minute === 0 ? '' : minute + '分'}の</div>`;
+                    timeHeader = `<div class="q-text"><span class="editable" contenteditable="true">${timeText}</span>の</div>`;
                 } else {
-                    timeHeader = `<div class="w-full mb-2">${createClockSVG(hour, minute)}</div>`;
+                    timeHeader = `<div class="w-full mb-2">${createClockSVG(q.hour, q.minute)}</div>`;
                 }
 
-                const questionBody = `<div class="q-text">${diff}分${isAfter ? '後' : '前'}は</div>`;
+                // 問題文
+                const questionText = `${q.diff}分${q.isAfter ? '後' : '前'}は`;
+                const questionBody = `<div class="q-text"><span class="editable" contenteditable="true">${questionText}</span></div>`;
 
+                // 解答エリア（記述式か4択式か）
                 let answerArea = '';
                 if (format === 'write') {
-                    answerArea = `<div class="mt-4 text-lg w-full">答え：<span class="answer-line"></span></div>`;
-                } else {
-                    const correctTotal = isAfter ? (hour * 60 + minute + diff) : (hour * 60 + minute - diff);
-                    let cH = Math.floor(correctTotal / 60);
-                    if(cH > 12) cH -= 12;
-                    if(cH === 0) cH = 12;
-                    const cM = correctTotal % 60;
-
-                    let wM = (cM + (Math.random() > 0.5 ? 10 : -10) + 60) % 60;
-                    if (wM === cM) wM = (cM + 5) % 60;
-                    
-                    const choices = [
-                        `${cH}時${cM === 0 ? '' : cM + '分'}`,
-                        `${cH}時${wM === 0 ? '' : wM + '分'}`
-                    ].sort(() => Math.random() - 0.5);
-
                     answerArea = `
-                        <div class="mt-4 flex gap-6 text-md w-full justify-start font-medium">
-                            <span>A：${choices[0]}</span>
-                            <span>B：${choices[1]}</span>
-                        </div>
-                        <div class="mt-2 text-lg">答え：<span class="answer-line" style="min-width:60px"></span></div>
-                    `;
+                        <div class="mt-4 text-lg w-full">
+                            <span class="editable" contenteditable="true">答え：</span><span class="answer-line"></span>
+                        </div>`;
+                } else {
+                    // 4択式
+                    const labels = ['ア', 'イ', 'ウ', 'エ'];
+                    let choicesHTML = '';
+                    q.choices.forEach((choice, index) => {
+                        choicesHTML += `<span class="editable" contenteditable="true">${labels[index]}：${choice}</span>`;
+                    });
+                    
+                    answerArea = `
+                        <div class="mt-4 grid grid-cols-2 gap-y-3 gap-x-2 text-[1.1rem] w-full font-medium">
+                            ${choicesHTML}
+                        </div>`;
                 }
 
                 qDiv.innerHTML = `
-                    <div class="absolute -top-1 -left-4 text-sm">(${i+1})</div>
+                    <div class="absolute -top-1 -left-4 text-sm font-bold editable" contenteditable="true">(${q.id})</div>
                     ${timeHeader}
                     ${questionBody}
                     ${answerArea}
                 `;
                 container.appendChild(qDiv);
-            }
+            });
         }
 
-        window.onload = generateWorksheet;
+        // ラジオボタンの「解答形式」と「表示方法」が変更されたら再描画するイベントを登録
+        document.querySelectorAll('input[name="format"], input[name="display"]').forEach(el => {
+            el.addEventListener('change', () => {
+                if (currentQuestionsData.length > 0) {
+                    renderWorksheet();
+                }
+            });
+        });
+
+        // 初期表示
+        window.onload = generateDataAndRender;
     </script>
 </body>
 </html>
