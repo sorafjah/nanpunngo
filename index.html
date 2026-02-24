@@ -360,7 +360,7 @@
                     const labels = ['ア', 'イ', 'ウ', 'エ'];
                     let choicesHTML = '';
                     q.choices.forEach((choice, index) => {
-                        choicesHTML += `<span class="editable" contenteditable="true">${labels[index]}：${choice}</span>`;
+                        choicesHTML += `<span class="editable whitespace-nowrap" contenteditable="true">${labels[index]}：${choice}</span>`;
                     });
                     
                     answerArea = `
