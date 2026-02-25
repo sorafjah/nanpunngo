@@ -12,7 +12,7 @@
             .print-page {
                 width: 210mm;
                 min-height: 297mm;
-                padding: 15mm;
+                padding: 10mm 15mm 15mm 15mm; /* 上の余白を15mmから10mmに変更 */
                 margin: 0;
                 box-sizing: border-box;
                 border: none !important;
@@ -31,18 +31,18 @@
             background: white;
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
             margin: 20px auto;
-            padding: 15mm;
+            padding: 10mm 15mm 15mm 15mm; /* 上の余白を15mmから10mmに変更 */
             box-sizing: border-box;
             font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
         }
         .question-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 30px 20px;
+            gap: 15px 20px; /* 縦の余白を30pxから15pxに縮小 */
         }
         .clock-svg {
-            width: 150px;
-            height: 150px;
+            width: 130px; /* 150pxから130pxに少し縮小 */
+            height: 130px;
         }
         .q-text {
             line-height: 1.6;
@@ -81,7 +81,6 @@
 </head>
 <body class="bg-gray-100 p-4">
 
-    <!-- 設定パネル -->
     <div class="no-print max-w-[210mm] mx-auto bg-white p-6 rounded-lg shadow-md mb-8">
         <h1 class="text-xl font-bold mb-4 border-b pb-2">プリント設定</h1>
         
@@ -162,17 +161,14 @@
         <p class="text-xs text-gray-500 mt-3 text-center">※ プリント部分の文字や数字は、クリックして直接書き直すことができます。</p>
     </div>
 
-    <!-- プリント本体 -->
     <div id="print-area" class="print-page">
-        <div class="flex justify-between items-end mb-10">
-            <div class="text-right w-full">
+        <div class="flex justify-between items-end mb-6"> <div class="text-right w-full">
                 <div class="text-lg">なまえ：____________________________________</div>
             </div>
         </div>
 
         <div id="questions-container" class="question-grid">
-            <!-- JavaScriptで生成 -->
-        </div>
+            </div>
     </div>
 
     <script>
@@ -341,7 +337,7 @@
                 if (display === 'text') {
                     timeHeader = `<div class="q-text"><span class="editable" contenteditable="true">${timeText}</span>の</div>`;
                 } else {
-                    timeHeader = `<div class="w-full mb-2">${createClockSVG(q.hour, q.minute)}</div>`;
+                    timeHeader = `<div class="w-full mb-1">${createClockSVG(q.hour, q.minute)}</div>`; // mb-2をmb-1に変更
                 }
 
                 // 問題文
@@ -352,8 +348,7 @@
                 let answerArea = '';
                 if (format === 'write') {
                     answerArea = `
-                        <div class="mt-4 text-lg w-full">
-                            <span class="editable" contenteditable="true">答え：</span><span class="answer-line"></span>
+                        <div class="mt-2 text-lg w-full"> <span class="editable" contenteditable="true">答え：</span><span class="answer-line"></span>
                         </div>`;
                 } else {
                     // 4択式
@@ -364,8 +359,7 @@
                     });
                     
                     answerArea = `
-                        <div class="mt-4 grid grid-cols-2 gap-y-3 gap-x-2 text-[1.1rem] w-full font-medium">
-                            ${choicesHTML}
+                        <div class="mt-2 grid grid-cols-2 gap-y-2 gap-x-2 text-[1.1rem] w-full font-medium"> ${choicesHTML}
                         </div>`;
                 }
 
