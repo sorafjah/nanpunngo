@@ -12,7 +12,7 @@
             .print-page {
                 width: 210mm;
                 min-height: 297mm;
-                padding: 15mm; 
+                padding: 8mm 15mm 10mm 15mm; /* 上下の余白をさらに狭く */
                 margin: 0;
                 box-sizing: border-box;
                 border: none !important;
@@ -31,22 +31,22 @@
             background: white;
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
             margin: 20px auto;
-            padding: 15mm; 
+            padding: 8mm 15mm 10mm 15mm; /* 上下の余白をさらに狭く */
             box-sizing: border-box;
             font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
         }
         .question-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 40px 20px; /* 縦の余白を広め（40px）に設定 */
+            gap: 15px 20px; /* 縦の余白をきゅっと狭く(15px) */
         }
         .clock-svg {
-            width: 150px; /* 150pxに戻しました */
+            width: 150px; /* 時計は150pxのまま */
             height: 150px;
         }
         .q-text {
-            line-height: 1.6;
-            font-size: 1.15rem;
+            line-height: 1.4; /* 行間を少し狭く */
+            font-size: 1rem;  /* フォントサイズを小さく(1.15rem -> 1rem) */
         }
         .answer-line {
             border-bottom: 1px solid black;
@@ -81,6 +81,7 @@
 </head>
 <body class="bg-gray-100 p-4">
 
+    <!-- 設定パネル -->
     <div class="no-print max-w-[210mm] mx-auto bg-white p-6 rounded-lg shadow-md mb-8">
         <h1 class="text-xl font-bold mb-4 border-b pb-2">プリント設定</h1>
         
@@ -93,7 +94,8 @@
                         <span class="px-4 py-2 border rounded hover:bg-gray-50 transition-colors">4問</span>
                     </label>
                     <label class="inline-flex items-center cursor-pointer">
-                        <input type="radio" name="qCount" value="6" class="hidden peer" checked> <span class="px-4 py-2 border rounded hover:bg-gray-50 transition-colors">6問</span>
+                        <input type="radio" name="qCount" value="6" class="hidden peer" checked>
+                        <span class="px-4 py-2 border rounded hover:bg-gray-50 transition-colors">6問</span>
                     </label>
                     <label class="inline-flex items-center cursor-pointer">
                         <input type="radio" name="qCount" value="8" class="hidden peer">
@@ -110,7 +112,8 @@
                 <label class="block font-bold mb-2">分のきざみ</label>
                 <div class="flex gap-4">
                     <label class="inline-flex items-center"><input type="radio" name="step" value="1"> <span class="ml-2">1分</span></label>
-                    <label class="inline-flex items-center"><input type="radio" name="step" value="5" checked> <span class="ml-2">5分</span></label> <label class="inline-flex items-center"><input type="radio" name="step" value="10"> <span class="ml-2">10分</span></label>
+                    <label class="inline-flex items-center"><input type="radio" name="step" value="5" checked> <span class="ml-2">5分</span></label>
+                    <label class="inline-flex items-center"><input type="radio" name="step" value="10"> <span class="ml-2">10分</span></label>
                 </div>
             </div>
 
@@ -135,14 +138,16 @@
                 <label class="block font-bold mb-2 text-blue-800">解答形式（作成後も切替可）</label>
                 <div class="flex gap-4">
                     <label class="inline-flex items-center"><input type="radio" name="format" value="write"> <span class="ml-2">記述式</span></label>
-                    <label class="inline-flex items-center"><input type="radio" name="format" value="choice" checked> <span class="ml-2">4択式</span></label> </div>
+                    <label class="inline-flex items-center"><input type="radio" name="format" value="choice" checked> <span class="ml-2">4択式</span></label>
+                </div>
             </div>
 
             <div class="bg-blue-50 p-3 rounded border border-blue-100">
                 <label class="block font-bold mb-2 text-blue-800">表示方法（作成後も切替可）</label>
                 <div class="flex gap-4">
                     <label class="inline-flex items-center"><input type="radio" name="display" value="text"> <span class="ml-2">数字</span></label>
-                    <label class="inline-flex items-center"><input type="radio" name="display" value="clock" checked> <span class="ml-2">時計画像</span></label> </div>
+                    <label class="inline-flex items-center"><input type="radio" name="display" value="clock" checked> <span class="ml-2">時計画像</span></label>
+                </div>
             </div>
         </div>
 
@@ -157,15 +162,17 @@
         <p class="text-xs text-gray-500 mt-3 text-center">※ プリント部分の文字や数字は、クリックして直接書き直すことができます。</p>
     </div>
 
+    <!-- プリント本体 -->
     <div id="print-area" class="print-page">
-        <div class="flex justify-between items-end mb-8">
+        <div class="flex justify-between items-end mb-4"> <!-- mb-8からmb-4にして余白を詰める -->
             <div class="text-right w-full">
-                <div class="text-lg">なまえ：____________________________________</div>
+                <div class="text-[1.1rem]">なまえ：____________________________________</div>
             </div>
         </div>
 
         <div id="questions-container" class="question-grid">
-            </div>
+            <!-- JavaScriptで生成 -->
+        </div>
     </div>
 
     <script>
@@ -326,7 +333,7 @@
 
             currentQuestionsData.forEach(q => {
                 const qDiv = document.createElement('div');
-                qDiv.className = 'p-2 flex flex-col items-start relative';
+                qDiv.className = 'p-1 flex flex-col items-start relative'; // p-2からp-1にして内側の余白を減らす
                 
                 // 時間表示部（テキストか時計か）
                 let timeHeader = '';
@@ -334,7 +341,7 @@
                 if (display === 'text') {
                     timeHeader = `<div class="q-text"><span class="editable" contenteditable="true">${timeText}</span>の</div>`;
                 } else {
-                    timeHeader = `<div class="w-full mb-2">${createClockSVG(q.hour, q.minute)}</div>`;
+                    timeHeader = `<div class="w-full mb-1">${createClockSVG(q.hour, q.minute)}</div>`; // 下の余白を減らす
                 }
 
                 // 問題文
@@ -345,7 +352,7 @@
                 let answerArea = '';
                 if (format === 'write') {
                     answerArea = `
-                        <div class="mt-4 text-lg w-full">
+                        <div class="mt-2 text-base w-full">
                             <span class="editable" contenteditable="true">答え：</span><span class="answer-line"></span>
                         </div>`;
                 } else {
@@ -357,7 +364,7 @@
                     });
                     
                     answerArea = `
-                        <div class="mt-4 grid grid-cols-2 gap-y-3 gap-x-2 text-[1.1rem] w-full font-medium">
+                        <div class="mt-2 grid grid-cols-2 gap-y-1 gap-x-2 text-[1rem] w-full font-medium"> <!-- mtを減らし、gap-yを詰めてフォントも小さく -->
                             ${choicesHTML}
                         </div>`;
                 }
