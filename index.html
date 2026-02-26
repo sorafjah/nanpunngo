@@ -12,7 +12,7 @@
             .print-page {
                 width: 210mm;
                 min-height: 297mm;
-                padding: 8mm 15mm 10mm 15mm; /* 上下の余白をさらに狭く */
+                padding: 8mm 15mm 10mm 15mm;
                 margin: 0;
                 box-sizing: border-box;
                 border: none !important;
@@ -31,22 +31,22 @@
             background: white;
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
             margin: 20px auto;
-            padding: 8mm 15mm 10mm 15mm; /* 上下の余白をさらに狭く */
+            padding: 8mm 15mm 10mm 15mm;
             box-sizing: border-box;
             font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
         }
         .question-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 30px 20px; /* 縦の余白を広めに戻す(15px -> 30px) */
+            gap: 30px 20px;
         }
         .clock-svg {
-            width: 150px; /* 時計は150pxのまま */
+            width: 150px;
             height: 150px;
         }
         .q-text {
-            line-height: 1.4; /* 行間を少し狭く */
-            font-size: 1rem;  /* フォントサイズを小さく(1.15rem -> 1rem) */
+            line-height: 1.4;
+            font-size: 1rem; 
         }
         .answer-line {
             border-bottom: 1px solid black;
@@ -56,7 +56,7 @@
         }
         /* カスタムラジオボタンのスタイル */
         .peer:checked + span {
-            background-color: #0ea5e9; /* sky-500 */
+            background-color: #0ea5e9;
             color: white;
             border-color: #0ea5e9;
         }
@@ -69,13 +69,13 @@
             cursor: text;
         }
         .editable:hover {
-            border-color: #cbd5e1; /* slate-300 */
-            background-color: #f8fafc; /* slate-50 */
+            border-color: #cbd5e1;
+            background-color: #f8fafc;
         }
         .editable:focus {
             outline: none;
-            border-color: #3b82f6; /* blue-500 */
-            background-color: #eff6ff; /* blue-50 */
+            border-color: #3b82f6;
+            background-color: #eff6ff;
         }
     </style>
 </head>
@@ -136,8 +136,9 @@
 
             <div class="bg-blue-50 p-3 rounded border border-blue-100">
                 <label class="block font-bold mb-2 text-blue-800">解答形式（作成後も切替可）</label>
-                <div class="flex gap-4">
+                <div class="flex flex-wrap gap-4">
                     <label class="inline-flex items-center"><input type="radio" name="format" value="write"> <span class="ml-2">記述式</span></label>
+                    <label class="inline-flex items-center"><input type="radio" name="format" value="2choice"> <span class="ml-2">2択式</span></label>
                     <label class="inline-flex items-center"><input type="radio" name="format" value="choice" checked> <span class="ml-2">4択式</span></label>
                 </div>
             </div>
@@ -151,9 +152,12 @@
             </div>
         </div>
 
-        <div class="mt-8 flex gap-4">
+        <div class="mt-8 flex flex-col md:flex-row gap-4">
             <button onclick="generateDataAndRender()" class="flex-1 bg-sky-500 text-white font-bold py-3 rounded hover:bg-sky-600 transition shadow">
                 新しく問題を作る
+            </button>
+            <button onclick="saveHTML()" class="flex-1 bg-emerald-600 text-white font-bold py-3 rounded hover:bg-emerald-700 transition shadow">
+                HTMLを保存
             </button>
             <button onclick="window.print()" class="flex-1 bg-blue-700 text-white font-bold py-3 rounded hover:bg-blue-800 transition shadow">
                 印刷する
@@ -164,7 +168,7 @@
 
     <!-- プリント本体 -->
     <div id="print-area" class="print-page">
-        <div class="flex justify-between items-end mb-4"> <!-- mb-8からmb-4にして余白を詰める -->
+        <div class="flex justify-between items-end mb-4">
             <div class="text-right w-full">
                 <div class="text-[1.1rem]">なまえ：____________________________________</div>
             </div>
@@ -178,6 +182,46 @@
     <script>
         // 生成した問題データを保持する配列（表示切り替え用）
         let currentQuestionsData = [];
+
+        // HTMLを保存する機能
+        function saveHTML() {
+            // 選択中のラジオボタン等の状態をDOM属性に反映させる(保存後に維持するため)
+            document.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach(el => {
+                if (el.checked) {
+                    el.setAttribute('checked', 'checked');
+                } else {
+                    el.removeAttribute('checked');
+                }
+            });
+
+            // 現在の問題データを埋め込むためのscriptタグを更新
+            let dataScript = document.getElementById('saved-data');
+            if (!dataScript) {
+                dataScript = document.createElement('script');
+                dataScript.id = 'saved-data';
+                document.body.appendChild(dataScript);
+            }
+            // データをJSON文字列としてスクリプト内に保存
+            dataScript.textContent = `window.savedQuestionsData = ${JSON.stringify(currentQuestionsData)};`;
+
+            // HTML全体の文字列を取得してダウンロード
+            const htmlContent = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+            const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement("a");
+            a.href = url;
+            
+            // ファイル名に今日の日付を入れる
+            const now = new Date();
+            const yyyy = now.getFullYear();
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            a.download = `時計プリント_${yyyy}${mm}${dd}.html`;
+            
+            a.click();
+            URL.revokeObjectURL(url);
+        }
 
         // 時刻を文字列にするヘルパー
         const formatTime = (totalMin) => {
@@ -333,7 +377,7 @@
 
             currentQuestionsData.forEach(q => {
                 const qDiv = document.createElement('div');
-                qDiv.className = 'p-1 flex flex-col items-start relative'; // p-2からp-1にして内側の余白を減らす
+                qDiv.className = 'p-1 flex flex-col items-start relative';
                 
                 // 時間表示部（テキストか時計か）
                 let timeHeader = '';
@@ -341,19 +385,40 @@
                 if (display === 'text') {
                     timeHeader = `<div class="q-text"><span class="editable" contenteditable="true">${timeText}</span>の</div>`;
                 } else {
-                    timeHeader = `<div class="w-full mb-1">${createClockSVG(q.hour, q.minute)}</div>`; // 下の余白を減らす
+                    timeHeader = `<div class="w-full mb-1">${createClockSVG(q.hour, q.minute)}</div>`;
                 }
 
                 // 問題文
                 const questionText = `${q.diff}分${q.isAfter ? '後' : '前'}は`;
                 const questionBody = `<div class="q-text"><span class="editable" contenteditable="true">${questionText}</span></div>`;
 
-                // 解答エリア（記述式か4択式か）
+                // 解答エリア（記述式か2択式か4択式か）
                 let answerArea = '';
                 if (format === 'write') {
                     answerArea = `
                         <div class="mt-2 text-base w-full">
                             <span class="editable" contenteditable="true">答え：</span><span class="answer-line"></span>
+                        </div>`;
+                } else if (format === '2choice') {
+                    // 正解の文字列を計算
+                    const correctTotal = q.hour * 60 + q.minute + (q.isAfter ? q.diff : -q.diff);
+                    const correctStr = formatTime(correctTotal);
+                    
+                    // q.choicesの中から正解以外のダミーを1つ抽出
+                    const dummyStr = q.choices.find(c => c !== correctStr) || q.choices[0];
+                    
+                    // 正解とダミーを配列にしてシャッフル
+                    const twoChoices = [correctStr, dummyStr].sort(() => Math.random() - 0.5);
+                    const labels = ['ア', 'イ'];
+                    
+                    let choicesHTML = '';
+                    twoChoices.forEach((choice, index) => {
+                        choicesHTML += `<span class="editable whitespace-nowrap" contenteditable="true">${labels[index]}：${choice}</span>`;
+                    });
+                    
+                    answerArea = `
+                        <div class="mt-2 grid grid-cols-2 gap-y-1 gap-x-2 text-[1rem] w-full font-medium">
+                            ${choicesHTML}
                         </div>`;
                 } else {
                     // 4択式
@@ -364,7 +429,7 @@
                     });
                     
                     answerArea = `
-                        <div class="mt-2 grid grid-cols-2 gap-y-1 gap-x-2 text-[1rem] w-full font-medium"> <!-- mtを減らし、gap-yを詰めてフォントも小さく -->
+                        <div class="mt-2 grid grid-cols-2 gap-y-1 gap-x-2 text-[1rem] w-full font-medium">
                             ${choicesHTML}
                         </div>`;
                 }
@@ -389,7 +454,14 @@
         });
 
         // 初期表示
-        window.onload = generateDataAndRender;
+        window.onload = () => {
+            // 保存されたHTMLを開いた場合は、データを復元して再描画はしない(手書き修正を維持するため)
+            if (typeof window.savedQuestionsData !== 'undefined') {
+                currentQuestionsData = window.savedQuestionsData;
+            } else {
+                generateDataAndRender();
+            }
+        };
     </script>
 </body>
 </html>
